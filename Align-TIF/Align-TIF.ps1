@@ -58,21 +58,17 @@ function Convert-TiffToA4Size {
         [int]$Dpi,
         [string]$OutputFile
     )
-    & $ImageMagick convert $InputFile -crop 4960x7016+0+0 -density $Dpi $OutputFile
+    #$size = Get-ImageSize -image $InputFile
+    #$closest = GetClosestResolution -size $size.Width
+    
+    & $ImageMagick convert $InputFile -crop 4960x7016+0+0 -density $Dpi -compress LZW $OutputFile
 }
 
+### MAIN LOOP
 foreach ($file in Get-ChildItem -Path $Source -Filter *.tif) {
-    
     # Get the page number from the filename
-    $pageNumber = [regex]::Match($file.Name, "\d+").Value
-    #$pageNumber
-
-    Get-ImageSize -image $file.FullName
-
-
-
-
+    #$pageNumber = [regex]::Match($file.Name, "\d+").Value
+   
     # This converts the scan to exactly A4 size at 600DPI
-    Convert-TiffToA4Size -InputFile $file.FullName -Dpi 600 -OutputFile "C:\IT\Destination\$($file.Name)"
-
+    Convert-TiffToA4Size -InputFile $file.FullName -Dpi 600 -OutputFile "C:\IT\Destination\$($file.Name)" #-Verbose
     }
