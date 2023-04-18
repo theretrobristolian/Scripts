@@ -1,10 +1,9 @@
 # This script is personal project that aligns TIF files based on page numbers at the bottom of the page using ImageMagick.
 #ImageMagick can be downloaded from: https://imagemagick.org/script/download.php#windows
 
-
-
-
-
+# Import the ImageMagick command line tools
+$env:Path += ";C:\Program Files\ImageMagick-7.1.1-Q16-HDRI"
+$ImageMagick = "C:\Program Files\ImageMagick-7.1.0-Q16\magick"
 
 Clear-Host #Clear the console
 
@@ -14,46 +13,66 @@ Write-Output "*******Last updated 18/04/2023********"
 Write-Output ""
 
 ### Variables
+$Source = "C:\IT\Source" # <-- This is the source folder.
+#$Destination = "C:\IT\Destination" # <-- This is the destination folder.
+$ScriptRoot = $PSScriptRoot # <-- This sets the script path automatically to the location the script is running from (can be useful sometimes.)
 
+### Set Correct Path
+Set-Location -Path $ScriptRoot | Out-Null # <-- This is now setting that path with a hidden output.
 
-
-
-# Import the ImageMagick command line tools
-$env:Path += ";C:\Program Files\ImageMagick-7.1.0-Q16-HDRI"
-
-# Set the folder path for the TIF files
-$folderPath = "C:\path\to\folder\of\TIF\files"
-
-# Set the desired output image size (A4 size)
-$outputWidth = 2480 # in pixels (8.27 inches * 300 pixels per inch)
-$outputHeight = 3508 # in pixels (11.69 inches * 300 pixels per inch)
-
-# Set the page margin size (to account for possible cropping or reshaping)
-$marginSize = 50 # in pixels
-
-# Get a list of all the TIF files in the folder
-$tifFiles = Get-ChildItem -Path $folderPath -Filter *.tif
-
-# Loop through each TIF file
-foreach ($tifFile in $tifFiles) {
-
-    # Get the page number from the filename
-    $pageNumber = [regex]::Match($tifFile.Name, "\d+").Value
-
-    # Use ImageMagick to get the image width and height
-    $imageSize = magick identify -ping -format "%w,%h" $tifFile.FullName
-
-    # Convert the image size string to an array of integers
-    $imageSize = $imageSize.Split(",") | ForEach-Object { [int]$_ }
-
-    # Calculate the offset to align the page numbers
-    $offset = ($pageNumber - 1) * ($outputHeight - $marginSize) - ($imageSize[1] - $marginSize)
-
-    # Use ImageMagick to crop or reshape the image
-    $command = "magick `"$($tifFile.FullName)`" -gravity center -background white -extent $($outputWidth)x$($outputHeight) -splice 0x$($marginSize / 2) -gravity south -splice 0x$($marginSize / 2) +repage `"$($tifFile.FullName)`""
-    Invoke-Expression $command
-
-    # Use ImageMagick to reposition the image based on the offset
-    $command = "magick `"$($tifFile.FullName)`" -background white -extent $($imageSize[0])x$($imageSize[1] + $offset) -gravity south `"$($tifFile.FullName)`""
-    Invoke-Expression $command
+### Define A4 paper size in pixels at various DPIs
+$A4Sizes = @{
+    150 = @(1240, 1754)
+    200 = @(1654, 2338)
+    300 = @(2480, 3508)
+    600 = @(4960, 7016)
 }
+
+### Functions
+# Define function to get closest resolution for a given size
+function GetClosestResolution($size) {
+    $closest = $A4Sizes.GetEnumerator() | Sort-Object { [Math]::Abs($_.Value[0] - $size.Width) } | Select-Object -First 1
+    return @{
+        Resolution = $closest.Name
+        Size = New-Object System.Drawing.Size($closest.Value[0], $closest.Value[1])
+    }
+}
+# Define function to get Image Size
+function Get-ImageSize {
+    param(
+        [string] $imagePath
+    )
+
+    $sizeRegex = '\d+x\d+'
+    $imageInfo = magick identify $imagePath
+    $sizeMatch = [regex]::Match($imageInfo, $sizeRegex)
+    $sizeString = $sizeMatch.Value
+    $sizeValues = $sizeString.Split('x')
+    $size = New-Object System.Drawing.Size($sizeValues[0], $sizeValues[1])
+    return $size
+}
+# Define function to convert image to true A4 Size
+function Convert-TiffToA4Size {
+    param(
+        [string]$InputFile,
+        [int]$Dpi,
+        [string]$OutputFile
+    )
+    & $ImageMagick convert $InputFile -crop 4960x7016+0+0 -density $Dpi $OutputFile
+}
+
+foreach ($file in Get-ChildItem -Path $Source -Filter *.tif) {
+    
+    # Get the page number from the filename
+    $pageNumber = [regex]::Match($file.Name, "\d+").Value
+    #$pageNumber
+
+    Get-ImageSize -image $file.FullName
+
+
+
+
+    # This converts the scan to exactly A4 size at 600DPI
+    Convert-TiffToA4Size -InputFile $file.FullName -Dpi 600 -OutputFile "C:\IT\Destination\$($file.Name)"
+
+    }
