@@ -20,14 +20,14 @@ $ScriptRoot = $PSScriptRoot # This sets the script path automatically to the loc
 Set-Location -Path $ScriptRoot | Out-Null # This is now setting that path with a hidden output.
 
 ### MAIN LOOP
-
 foreach ($file in Get-ChildItem -Path $Source -Filter *.tif) {
-    ### Variables
-    $Document = $($file.FullName)
-    
-    ###Log
-    Write-Host "Now Deskewing $($file.Name)..."
-
+    ### Console Output
+    Write-Output "Now Deskewing $($file.Name)..." # <--- This is a simple console output to show progress as the script is progressing through the source folder.
     ### Command
-    & "$deskew64" -t a -a 10 -b FFFFFF -c tlzw -o "$Destination\$($file.Name)" "$Document" | Out-Null
+    & "$deskew64" -t a -a 10 -b FFFFFF -c tlzw -o "$Destination\$($file.Name)" $($file.FullName) | Out-Null # <--- This is calling the deskew process which is a commandline process. More info about the switches can be found on Mark's page.
     }
+
+Write-Output ""
+Write-Output "Done."
+
+### Script End
