@@ -1,6 +1,8 @@
 # Audio Normalization Script for Video Looping on Raspberry Pi
 
-This `Normalize-Audio.ps1` script is designed to simplify the process of normalizing audio levels in video content. It works with two distinct sources of video files: music videos and trailers/advertisements, and outputs them to separate folders for use in a video looping system on a Raspberry Pi.
+The Normalize-Audio.ps1 script is a versatile tool created to streamline the audio normalization process for video content. This script is particularly designed to work with two categories of video sources: music videos and trailers/advertisements. It processes these videos to ensure consistent and optimal audio levels. The resulting normalized videos are organized into separate folders. This organization is particularly useful for scenarios where you need distinct video content for specific applications, such as setting up a video looping system, such as on a Raspberry Pi.
+
+The script essentially takes video files from these two source categories, applies audio normalization techniques to achieve consistent audio levels, and ensures that both audio sample rates and bitrates are preserved from the original sources. The output videos are neatly organized for easy access and use, making it a valuable tool for video content management and distribution.
 
 ## Prerequisites
 

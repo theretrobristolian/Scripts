@@ -4,7 +4,6 @@
 Clear-Host
 
 Write-Output "******** Normalize Audio Levels *********"
-Write-Output "************ Version 1.0 *************"
 Write-Output "******* Last updated 30/10/2023 ********"
 Write-Output ""
 
@@ -19,7 +18,6 @@ $ScriptRoot = $PSScriptRoot
 # Set the path to the FFmpeg executable
 $ffmpegPath = Join-Path -Path (Join-Path -Path $appsDirectory -ChildPath "FFmpeg") -ChildPath "ffmpeg.exe"
 $ffprobePath = Join-Path -Path (Join-Path -Path $appsDirectory -ChildPath "FFmpeg") -ChildPath "ffprobe.exe"
-
 
 # Set the target LRA levels
 $lraMusicVideo = -14
@@ -71,14 +69,11 @@ function Process-Videos {
         $audioSampleRate, $audioBitrate = $ffprobeOutput -split ","
 
         # Apply loudness normalization to the audio while preserving the original sample rate and re-encoding it to AAC
-        & $ffmpegPath -i $_.FullName -c:v copy -c:a aac -ar $audioSampleRate -af "loudnorm=I=$($lraTarget):LRA=11:TP=-2" $outputFile
+        & $ffmpegPath -i $_.FullName -c:v copy -c:a aac -ar $audioSampleRate -b:a ${audioBitrate} -af "loudnorm=I=$($lraTarget):LRA=11:TP=-2" $outputFile
     }
 }
 
-
 ### MAIN LOOP
-
-# Uncomment and use the following lines to process videos
 
 # Process music videos
 Process-Videos -sourceFolder (Join-Path -Path $sourceDir -ChildPath "Music_Videos") -outputFolder (Join-Path -Path $outputDir -ChildPath "Music_Videos") -lraTarget $lraMusicVideo
