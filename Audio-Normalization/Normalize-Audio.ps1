@@ -63,7 +63,7 @@ function Process-Videos {
     
     Get-ChildItem -Path $sourceFolder -Filter *.mp4 | ForEach-Object {
         $outputFile = Join-Path -Path $outputFolder -ChildPath $_.Name
-        & $ffmpegPath -i $_.FullName -af "loudnorm=I=$lraTarget:LRA=11:TP=-2" -c:v copy $outputFile
+        & $ffmpegPath -i $_.FullName -af "loudnorm=I=$($lraTarget):LRA=11:TP=-2" -c:v copy $outputFile
     }
 }
 
@@ -72,9 +72,9 @@ function Process-Videos {
 # Uncomment and use the following lines to process videos
 
 # Process music videos
-#Process-Videos -sourceFolder (Join-Path -Path $sourceDir -ChildPath "Music_Videos") -outputFolder (Join-Path -Path $outputDir -ChildPath "Music_Videos") -lraTarget $lraMusicVideo
+Process-Videos -sourceFolder (Join-Path -Path $sourceDir -ChildPath "Music_Videos") -outputFolder (Join-Path -Path $outputDir -ChildPath "Music_Videos") -lraTarget $lraMusicVideo
 
 # Process adverts
-#Process-Videos -sourceFolder (Join-Path -Path $sourceDir -ChildPath "Trailers_Adverts") -outputFolder (Join-Path -Path $outputDir -ChildPath "Trailers_Adverts") -lraTarget $lraAdvert
+Process-Videos -sourceFolder (Join-Path -Path $sourceDir -ChildPath "Trailers_Adverts") -outputFolder (Join-Path -Path $outputDir -ChildPath "Trailers_Adverts") -lraTarget $lraAdvert
 
 # End of the script
