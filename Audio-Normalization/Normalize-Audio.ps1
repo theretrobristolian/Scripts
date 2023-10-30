@@ -18,6 +18,8 @@ $ScriptRoot = $PSScriptRoot
 
 # Set the path to the FFmpeg executable
 $ffmpegPath = Join-Path -Path (Join-Path -Path $appsDirectory -ChildPath "FFmpeg") -ChildPath "ffmpeg.exe"
+$ffprobePath = Join-Path -Path (Join-Path -Path $appsDirectory -ChildPath "FFmpeg") -ChildPath "ffprobe.exe"
+
 
 # Set the target LRA levels
 $lraMusicVideo = -14
@@ -53,19 +55,26 @@ $outputDir = Join-Path -Path $baseDirectory -ChildPath "Modified"
 
 ### Functions
 
-# Function to process and normalize videos
+# Function to process and normalize videos while preserving the source sample rate and bitrate
 function Process-Videos {
     param (
         [string]$sourceFolder,
         [string]$outputFolder,
         [int]$lraTarget
     )
-    
+
     Get-ChildItem -Path $sourceFolder -Filter *.mp4 | ForEach-Object {
         $outputFile = Join-Path -Path $outputFolder -ChildPath $_.Name
-        & $ffmpegPath -i $_.FullName -af "loudnorm=I=$($lraTarget):LRA=11:TP=-2" -c:v copy $outputFile
+
+        # Use FFprobe to extract the original audio sample rate and bitrate
+        $ffprobeOutput = & $ffprobePath -v error -select_streams a:0 -show_entries stream=sample_rate,bit_rate -of csv=p=0:nk=1 $_.FullName
+        $audioSampleRate, $audioBitrate = $ffprobeOutput -split ","
+
+        # Apply loudness normalization to the audio while preserving the original sample rate and re-encoding it to AAC
+        & $ffmpegPath -i $_.FullName -c:v copy -c:a aac -ar $audioSampleRate -af "loudnorm=I=$($lraTarget):LRA=11:TP=-2" $outputFile
     }
 }
+
 
 ### MAIN LOOP
 
