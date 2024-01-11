@@ -132,7 +132,7 @@ function Deskew-TIF {
 
         # Deskew the TIF file and place it in the corresponding destination folder
         $deskewedFileName = Join-Path -Path $destinationFolder -ChildPath $file.Name
-        & $Deskew64Path -t a -a 10 -b FFFFFF -c tg4 -o $deskewedFileName $file.FullName | Out-Null #tnone|tlzw|trle|tdeflate|tjpeg|tg4
+        & $Deskew64Path -t a -a 10 -b FFFFFF -c tinput -o $deskewedFileName $file.FullName | Out-Null #tnone|tlzw|trle|tdeflate|tjpeg|tg4
     }
 }
 
@@ -274,7 +274,7 @@ Write-Output "***********Document Archiver**********"
 Write-Output "*******Last updated 02/01/2024********"
 Write-Output ""
 Write-Output "Setting the IrfanView Compression Value to $CompressionValue ($Compression)."
-Update-IrfanViewSetting -CompressionValue $CompressionValue
+#Update-IrfanViewSetting -CompressionValue $CompressionValue
 Write-Output ""
 Write-Output "Searching the Source directory $Source for documents to extract..."
 ### Call the function with global variables
@@ -282,15 +282,15 @@ Write-Output "Searching the Source directory $Source for documents to extract...
 Write-Output ""
 Write-Output "Searching the Extracted directory $Extracted for TIF files to deskew..."
 ### Call the function for deskewing TIF files
-Deskew-TIF -SourcePath $Extracted -DeskewedPath $Deskewed -Deskew64Path $deskew64
+#Deskew-TIF -SourcePath $Extracted -DeskewedPath $Deskewed -Deskew64Path $deskew64
 Write-Output ""
 Write-Output "Searching the Deskewed directory $Deskewed for TIF files to crop to A4..."
 ### Call Crop-Images function
-Crop-ImagesRecursively -SourcePath $Deskewed -DestinationPath $Cropped -A4Sizes $A4Sizes -IrfanViewPath $IrfanView
+#Crop-ImagesRecursively -SourcePath $Deskewed -DestinationPath $Cropped -A4Sizes $A4Sizes -IrfanViewPath $IrfanView
 Write-Output ""
 Write-Output "Searching the Cropped directory $Cropped for TIF files to convert and combine into PDFs..."
 ### Call the function to start the process of combining to PDFs
-#Question-PDF -SourcePath $Cropped -OutputPath $PDFs -img2pdfPath $img2pdf
+Question-PDF -SourcePath $Cropped -OutputPath $PDFs -img2pdfPath $img2pdf
 Write-Output ""
 Write-Output "Script Finished."
 ### Script End
