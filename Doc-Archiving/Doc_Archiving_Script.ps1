@@ -20,6 +20,12 @@ Clear-Host #Clear the console
 ### Global Variables
 $Compression = "CCITT Fax 4" #Set to either CCITT Fax 4 or None or LZW
 
+### Switches
+$Set_Compression = "Y" #(Y/N) - If Y the global variable applies, if N it will set to LZW as default.
+$Run_TIFF_Extraction = "Y" #(Y/N) - if Y the script will run the multipage TIFF extraction.
+$Run_Deskew = "Y" #(Y/N) - 
+$Run_Crop = "Y" #(Y/N) - 
+$Combine_to_PDF = "Y" #(Y/N) - 
 
 ### Applications
 $IrfanView = "C:\Program Files\IrfanView\i_view64.exe" #This should point at the Infraview exe, if you're on 64-bit Windows and installed with defaults this should be fine.
@@ -47,19 +53,19 @@ $compressionMapping = @{
     'LZW' = 1
     'None' = 0
 }
-$compressionNumber = $compressionMapping[$compression]
-
+$CompressionNumber = $compressionMapping[$compression]
+$CompressionNumber
 ### Set Correct Path
 $ScriptRoot = $PSScriptRoot #This sets the script path automatically to the location the script is running from.
 Set-Location -Path $ScriptRoot | Out-Null #This is now setting that path with a hidden output.
 
 ### Functions
-#This function updates the compression setting for IrfanView
+# Update-IrfanViewSetting function
 function Update-IrfanViewSetting {
     param (
         [Hashtable]$compressionMapping,
-        [string]$CompressionNumber,
-        [string]$Compression
+        [Int]$CompressionNumber,
+        [Int]$CompressionValue
     )
 
     $currentUsername = $env:USERNAME
@@ -72,7 +78,7 @@ function Update-IrfanViewSetting {
     # Find and replace the specific setting line
     $updatedContent = $content | ForEach-Object {
         if ($_ -match "^$settingName=") {
-            $_ -replace "^$settingName=.*", "$settingName=$CompressionNumber"
+            $_ -replace "^$settingName=.*", "$settingName=$CompressionValue"
         } else {
             $_
         }
@@ -159,6 +165,7 @@ function Crop-ImagesRecursively {
     $folders = Get-ChildItem -Path $SourcePath -Directory
 
     foreach ($folder in $folders) {
+        Write-Output " - Now Cropping $folder..." # Console output to show progress through the source folder.
         # Generate the output folder path based on the current folder being processed
         $outputFolder = Join-Path -Path $DestinationPath -ChildPath $folder.Name
 
@@ -273,24 +280,56 @@ function Question-PDF {
 Write-Output "***********Document Archiver**********"
 Write-Output "*******Last updated 02/01/2024********"
 Write-Output ""
-Write-Output "Setting the IrfanView Compression Value to $CompressionValue ($Compression)."
-#Update-IrfanViewSetting -CompressionValue $CompressionValue
+Write-Output "IrfanView Compression Value:"
+if ($Set_Compression -eq "Y") {
+    Write-Output " - Setting to $Compression ($CompressionNumber)."
+    Update-IrfanViewSetting -CompressionNumber $CompressionNumber -CompressionValue $CompressionNumber
+}
+else {
+    Write-Output " - Value defaulted to LZW."
+    $CV = "1"
+    Update-IrfanViewSetting -CompressionNumber $CompressionNumber -CompressionValue $CV
+}
 Write-Output ""
-Write-Output "Searching the Source directory $Source for documents to extract..."
-### Call the function with global variables
-#Extract-TIF -SourcePath $Source -DestinationPath $Extracted -IrfanViewPath $IrfanView
+if ($Run_TIFF_Extraction -eq "Y") {
+    Write-Output "Searching the Source directory $Source for documents to extract..."
+    ### Call the function with global variables
+    Extract-TIF -SourcePath $Source -DestinationPath $Extracted -IrfanViewPath $IrfanView
+}
+else {
+    Write-Output "Skipping Multi-Page TIFF extraction."
+
+}
 Write-Output ""
-Write-Output "Searching the Extracted directory $Extracted for TIF files to deskew..."
-### Call the function for deskewing TIF files
-#Deskew-TIF -SourcePath $Extracted -DeskewedPath $Deskewed -Deskew64Path $deskew64
+if ($Run_Deskew -eq "Y") {
+    ### Call the function for deskewing TIF files
+    Write-Output "Searching the Extracted directory $Extracted for TIF files to deskew..."
+    Deskew-TIF -SourcePath $Extracted -DeskewedPath $Deskewed -Deskew64Path $deskew64
+}
+else {
+    Write-Output "Skipping deskew and straighten process."
+
+}
 Write-Output ""
-Write-Output "Searching the Deskewed directory $Deskewed for TIF files to crop to A4..."
-### Call Crop-Images function
-#Crop-ImagesRecursively -SourcePath $Deskewed -DestinationPath $Cropped -A4Sizes $A4Sizes -IrfanViewPath $IrfanView
+if ($Run_Crop -eq "Y") {
+    ### Call Crop-Images function
+    Write-Output "Searching the Deskewed directory $Deskewed for TIF files to crop to A4..."
+    Crop-ImagesRecursively -SourcePath $Deskewed -DestinationPath $Cropped -A4Sizes $A4Sizes -IrfanViewPath $IrfanView
+}
+else {
+    Write-Output "Skipping crop of deskewed images back to correct size (probably A4)."
+
+}
 Write-Output ""
-Write-Output "Searching the Cropped directory $Cropped for TIF files to convert and combine into PDFs..."
-### Call the function to start the process of combining to PDFs
-Question-PDF -SourcePath $Cropped -OutputPath $PDFs -img2pdfPath $img2pdf
+if ($Combine_to_PDF -eq "Y") {
+    ### Call the function to start the process of combining to PDFs
+    Write-Output "Searching the Cropped directory $Cropped for TIF files to convert and combine into PDFs..."
+    Question-PDF -SourcePath $Cropped -OutputPath $PDFs -img2pdfPath $img2pdf
+}
+else {
+    Write-Output "Skipping combining the cropped images to a PDF."
+
+}
 Write-Output ""
 Write-Output "Script Finished."
 ### Script End
