@@ -22,10 +22,10 @@ $Compression = "CCITT Fax 4" #Set to either CCITT Fax 4 or None or LZW
 
 ### Switches
 $Set_Compression = "Y" #(Y/N) - If Y the global variable applies, if N it will set to LZW as default.
-$Run_TIFF_Extraction = "Y" #(Y/N) - if Y the script will run the multipage TIFF extraction.
-$Run_Deskew = "Y" #(Y/N) - 
-$Run_Crop = "Y" #(Y/N) - 
-$Combine_to_PDF = "Y" #(Y/N) - 
+$Run_TIFF_Extraction = "Y" #(Y/N) - if Y the script will run the multipage TIF extraction.
+$Run_Deskew = "Y" #(Y/N) - if Y then the deskewing of the extracted TIF files will process.
+$Run_Crop = "Y" #(Y/N) - if Y the deskewed (straightened) TIF files will now be cropped to their nearest standard size (probably A4).
+$Combine_to_PDF = "Y" #(Y/N) - if Y there will be a pause question, which you can progress past when ready, and combine the available TIF files into a PDF.
 
 ### Applications
 $IrfanView = "C:\Program Files\IrfanView\i_view64.exe" #This should point at the Infraview exe, if you're on 64-bit Windows and installed with defaults this should be fine.
@@ -54,7 +54,7 @@ $compressionMapping = @{
     'None' = 0
 }
 $CompressionNumber = $compressionMapping[$compression]
-$CompressionNumber
+#$CompressionNumber
 ### Set Correct Path
 $ScriptRoot = $PSScriptRoot #This sets the script path automatically to the location the script is running from.
 Set-Location -Path $ScriptRoot | Out-Null #This is now setting that path with a hidden output.
@@ -138,7 +138,7 @@ function Deskew-TIF {
 
         # Deskew the TIF file and place it in the corresponding destination folder
         $deskewedFileName = Join-Path -Path $destinationFolder -ChildPath $file.Name
-        & $Deskew64Path -t a -a 10 -b FFFFFF -c tinput -o $deskewedFileName $file.FullName | Out-Null #tnone|tlzw|trle|tdeflate|tjpeg|tg4
+        & $Deskew64Path -t a -a 10 -b FFFFFF -c tinput -o $deskewedFileName $file.FullName | Out-Null #tnone|tlzw|trle|tdeflate|tjpeg|tg4|tinput
     }
 }
 
