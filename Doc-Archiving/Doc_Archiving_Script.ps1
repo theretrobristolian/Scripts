@@ -24,8 +24,8 @@ $Compression = "LZW" #Set to either CCITT Fax 4 or None or LZW
 $Set_Compression = "Y" #(Y/N) - If Y the global variable applies, if N it will set to LZW as default.
 $Run_TIFF_Extraction = "N" #(Y/N) - if Y the script will run the multipage TIF extraction.
 $Run_Deskew = "N" #(Y/N) - if Y then the deskewing of the extracted TIF files will process.
-$Run_Crop = "Y" #(Y/N) - if Y the deskewed (straightened) TIF files will now be cropped to their nearest standard size (probably A4).
-$Combine_to_PDF = "N" #(Y/N) - if Y there will be a pause question, which you can progress past when ready, and combine the available TIF files into a PDF.
+$Run_Crop = "N" #(Y/N) - if Y the deskewed (straightened) TIF files will now be cropped to their nearest standard size (probably A4).
+$Combine_to_PDF = "Y" #(Y/N) - if Y there will be a pause question, which you can progress past when ready, and combine the available TIF files into a PDF.
 
 ### Applications
 $IrfanView = "C:\Program Files\IrfanView\i_view64.exe" #This should point at the Infraview exe, if you're on 64-bit Windows and installed with defaults this should be fine.
@@ -41,14 +41,14 @@ $PDFs = "C:\Doc-Archiving\PDFs" #This is the final output folder where the combi
 
 ### Define Paper Sizes ###
 #This hash table is working on the assumption that the input files are 600DPI
-$PaperSizes = @{
-    'A4' = @(4960, 7016) #W H
-    #'B&O - A4' = @(4522, 6670)
-   # 'B&O - A3' = @(8998, 6670) #W H
-    'A3' = @(9921, 7016)
+$PaperSizes = @{ #(Width, Height, Tolerance) [Pixels]
+    'A4' = @(4792, 6846, 330)
+    'A3' = @(9268, 6846, 600)
+    #'B&O-A4' = @(4522, 6670)
+    #'B&O-A3' = @(8998, 6670)
+    'B&O-A3-Long' = @(13660, 6846, 400)
+    'B&O-A3-Long-2' = @(15450, 6846, 200)
 }
-
-$Tolerance = 330
 
 ### Define the compression type mapping
 $compressionMapping = @{
@@ -56,14 +56,16 @@ $compressionMapping = @{
     'LZW' = 1
     'None' = 0
 }
+
 $CompressionNumber = $compressionMapping[$compression]
-#$CompressionNumber
+
 ### Set Correct Path
 $ScriptRoot = $PSScriptRoot #This sets the script path automatically to the location the script is running from.
 Set-Location -Path $ScriptRoot | Out-Null #This is now setting that path with a hidden output.
 
 ### Functions
-# Update-IrfanViewSetting function
+
+### Update-IrfanViewSetting function
 function Update-IrfanViewSetting {
     param (
         [Hashtable]$compressionMapping,
@@ -149,8 +151,8 @@ function Find-ClosestPaperSize {
     param (
         [int]$Width,
         [int]$Height,
-        [Hashtable]$PaperSizes,
-        [int]$Tolerance
+        [Hashtable]$PaperSizes
+        #[int]$Tolerance
     )
 
     # Initialize variables
@@ -161,6 +163,7 @@ function Find-ClosestPaperSize {
     foreach ($size in $PaperSizes.GetEnumerator()) {
         $paperWidth = $size.Value[0]
         $paperHeight = $size.Value[1]
+        $tolerance = $size.Value[2]
         $diffWidth = [math]::Abs($Width - $paperWidth)
         $diffHeight = [math]::Abs($Height - $paperHeight)
 
@@ -255,31 +258,6 @@ function Crop-ImagesRecursively {
         # Execute the crop command
         & cmd.exe /c $command | Out-Null
     }
-}
-
-# Function to find the closest value in an array
-function Find-ClosestValue {
-    param (
-        [double]$target,
-        [array]$values
-    )
-
-    # Sort the DPI values
-    $sortedValues = $values | Sort-Object
-
-    # Find the closest value within the tolerance range
-    $closestValue = $null
-    foreach ($value in $sortedValues) {
-        $diff = [math]::Abs([double]$value - [double]$target)
-        if ($closestValue -eq $null -or $diff -lt $closestValue.Diff) {
-            $closestValue = [PSCustomObject]@{
-                Value = $value
-                Diff = $diff
-            }
-        }
-    }
-
-    return $closestValue.Value
 }
 
 function Convert-ToPDF {
