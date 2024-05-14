@@ -18,34 +18,37 @@ This script is broken down into a few key steps:
 Clear-Host #Clear the console
 
 ### Global Variables
-$Compression = "CCITT Fax 4" #Set to either CCITT Fax 4 or None or LZW
+$Compression = "LZW" #Set to either CCITT Fax 4 or None or LZW
 
 ### Switches
 $Set_Compression = "Y" #(Y/N) - If Y the global variable applies, if N it will set to LZW as default.
-$Run_TIFF_Extraction = "Y" #(Y/N) - if Y the script will run the multipage TIF extraction.
-$Run_Deskew = "Y" #(Y/N) - if Y then the deskewing of the extracted TIF files will process.
+$Run_TIFF_Extraction = "N" #(Y/N) - if Y the script will run the multipage TIF extraction.
+$Run_Deskew = "N" #(Y/N) - if Y then the deskewing of the extracted TIF files will process.
 $Run_Crop = "Y" #(Y/N) - if Y the deskewed (straightened) TIF files will now be cropped to their nearest standard size (probably A4).
-$Combine_to_PDF = "Y" #(Y/N) - if Y there will be a pause question, which you can progress past when ready, and combine the available TIF files into a PDF.
+$Combine_to_PDF = "N" #(Y/N) - if Y there will be a pause question, which you can progress past when ready, and combine the available TIF files into a PDF.
 
 ### Applications
 $IrfanView = "C:\Program Files\IrfanView\i_view64.exe" #This should point at the Infraview exe, if you're on 64-bit Windows and installed with defaults this should be fine.
-$deskew64 = "C:\IT\Apps\Deskew\Bin\deskew.exe" #This should point to the extracted full path for deskew.exe you downloaded.
-$img2pdf = "C:\IT\Apps\img2pdf.exe" #This should be the actual path to img2pdf.exe on your system
+$deskew64 = "C:\Doc-Archiving\Apps\Deskew\Bin\deskew.exe" #This should point to the extracted full path for deskew.exe you downloaded.
+$img2pdf = "C:\Doc-Archiving\Apps\img2pdf.exe" #This should be the actual path to img2pdf.exe on your system
 
 ### Folder variables
-$Source = "C:\IT\Source" #This is the source folder where you should drop all your original scanned multi-page TIFs. Update the path as required.
-$Extracted = "C:\IT\Extracted" #This is where the single TIF page files will extract to.
-$Deskewed = "C:\IT\Deskewed" #This is where the Deskewed TIF pages will be created.
-$Cropped = "C:\IT\Cropped" #This is where the Deskewed TIF pages will be created.
-$PDFs = "C:\IT\PDFs" #This is the final output folder where the combined PDFs will sit.
+$Source = "C:\Doc-Archiving\Source" #This is the source folder where you should drop all your original scanned multi-page TIFs. Update the path as required.
+$Extracted = "C:\Doc-Archiving\Extracted" #This is where the single TIF page files will extract to.
+$Deskewed = "C:\Doc-Archiving\Deskewed" #This is where the Deskewed TIF pages will be created.
+$CroppedPath = "C:\Doc-Archiving\Cropped" #This is where the Deskewed TIF pages will be created.
+$PDFs = "C:\Doc-Archiving\PDFs" #This is the final output folder where the combined PDFs will sit.
 
-### Define A4 paper size in pixels at various DPIs
-$A4Sizes = @{
-    150 = @(1240, 1754)
-    200 = @(1654, 2338)
-    300 = @(2480, 3508)
-    600 = @(4960, 7016)
+### Define Paper Sizes ###
+#This hash table is working on the assumption that the input files are 600DPI
+$PaperSizes = @{
+    'A4' = @(4960, 7016) #W H
+    #'B&O - A4' = @(4522, 6670)
+   # 'B&O - A3' = @(8998, 6670) #W H
+    'A3' = @(9921, 7016)
 }
+
+$Tolerance = 330
 
 ### Define the compression type mapping
 $compressionMapping = @{
@@ -142,83 +145,141 @@ function Deskew-TIF {
     }
 }
 
-# Function to find the closest value in an array
-function Find-ClosestValue {
+function Find-ClosestPaperSize {
     param (
-        [double]$target,
-        [double[]]$arr
+        [int]$Width,
+        [int]$Height,
+        [Hashtable]$PaperSizes,
+        [int]$Tolerance
     )
 
-    $closest = $arr | Sort-Object { [math]::abs($_ - $target) } | Select-Object -First 1
-    return $closest
+    # Initialize variables
+    $closestSize = $null
+    $closestDiff = [int]::MaxValue
+
+    # Iterate through each paper size in the hashtable
+    foreach ($size in $PaperSizes.GetEnumerator()) {
+        $paperWidth = $size.Value[0]
+        $paperHeight = $size.Value[1]
+        $diffWidth = [math]::Abs($Width - $paperWidth)
+        $diffHeight = [math]::Abs($Height - $paperHeight)
+
+        # Calculate the difference
+        $totalDiff = $diffWidth + $diffHeight
+
+        # Check if the current size is closer and within the tolerance
+        if ($totalDiff -le $Tolerance -and $totalDiff -lt $closestDiff) {
+            $closestDiff = $totalDiff
+            $closestSize = $size
+        }
+    }
+
+    # Return the closest size found or $null if none within tolerance
+    return $closestSize
 }
 
 function Crop-ImagesRecursively {
     param (
         [string]$SourcePath,
-        [string]$DestinationPath,
-        [Hashtable]$A4Sizes,
+        [string]$CroppedPath,
+        [Hashtable]$PaperSizes,
+        [int]$Tolerance,
         [string]$IrfanViewPath
     )
 
-    # Get all folders within the source path
-    $folders = Get-ChildItem -Path $SourcePath -Directory
+    # Get all TIF files recursively within the source directory
+    $tifFiles = Get-ChildItem -Path $SourcePath -Filter *.tif -Recurse
+    $tifFiles = $tifFiles | Sort-Object {[int]($_.BaseName -replace '/D','')}
 
-    foreach ($folder in $folders) {
-        Write-Output " - Now Cropping $folder..." # Console output to show progress through the source folder.
-        # Generate the output folder path based on the current folder being processed
-        $outputFolder = Join-Path -Path $DestinationPath -ChildPath $folder.Name
+    foreach ($file in $tifFiles) {
+        ### Console Output
+        Write-Output " - Now Cropping $($file.FullName)..." # Console output to show progress through the source folder.
 
-        # Get image files from the current folder
-        $imageFiles = Get-ChildItem -Path $folder.FullName -Filter *.tif
+        # Get the dimensions of the image
+        $image = [System.Drawing.Image]::FromFile($file.FullName)
+        $width = $image.Width
+        $height = $image.Height
+        $image.Dispose()
 
-        if ($imageFiles.Count -gt 0) {
-            # Create the output folder if it doesn't exist
-            if (-not (Test-Path -Path $outputFolder -PathType Container)) {
-                New-Item -ItemType Directory -Force -Path $outputFolder | Out-Null
-            }
+        # Find the closest paper size
+        $closestSize = Find-ClosestPaperSize -Width $width -Height $height -PaperSizes $PaperSizes -Tolerance $Tolerance
 
-            foreach ($file in $imageFiles) {
-                # Load the image using .NET's System.Drawing
-                $image = [System.Drawing.Image]::FromFile($file.FullName)
-
-                # Get image dimensions and DPI
-                $originalWidth = $image.Width
-                $originalHeight = $image.Height
-                $dpiX = $image.HorizontalResolution
-                $image.Dispose()  # Release the image resources
-
-                # Find closest DPI value in the predefined sizes
-                $closestDPI = Find-ClosestValue -target $dpiX -arr $A4Sizes.Keys
-                $closestDPI = [int]$closestDPI
-
-                if ($A4Sizes.ContainsKey($closestDPI)) {
-                    # Calculate A4 size in pixels based on the closest DPI
-                    $A4Width = $A4Sizes[$closestDPI][0]
-                    $A4Height = $A4Sizes[$closestDPI][1]
-
-                    # Calculate the cropping dimensions
-                    $widthDifference = $originalWidth - $A4Width
-                    $heightDifference = $originalHeight - $A4Height
-
-                    $x1 = [math]::Round($widthDifference / 2)
-                    $y1 = [math]::Round($heightDifference / 2)
-                    $x2 = $A4Width
-                    $y2 = $A4Height
-
-                    # Construct the crop command for IrfanView
-                    $command = "`"$IrfanViewPath`" $($file.FullName) /crop=($x1,$y1,$x2,$y2) /convert=`"$outputFolder\$($file.Name)`""
-                    
-                    # Execute the crop command
-                    cmd.exe /c $command | Out-Null
-                } else {
-                    Write-Host "Closest DPI ($closestDPI) not found in predefined sizes for $($file.Name)" -ForegroundColor Red
+        if ($null -eq $closestSize) {
+            # Calculate the differences for the closest size
+            $closestDiff = $null
+            foreach ($size in $PaperSizes.GetEnumerator()) {
+                $diffWidth = [math]::Abs($size.Value[0] - $width)
+                $diffHeight = [math]::Abs($size.Value[1] - $height)
+                $totalDiff = $diffWidth + $diffHeight
+                if ($null -eq $closestDiff -or $totalDiff -lt $closestDiff) {
+                    $closestDiff = $totalDiff
+                    $closestSize = $size
                 }
             }
-        } else {
-            Write-Host "No TIFF files found in $folder.FullName" -ForegroundColor Yellow
+            #Write-Output " - $($file.FullName) not cropped."
+            Write-Output "   No predefined paper size found within tolerance for dimensions Width=$width, Height=$height."
+            $closestSizeName = $closestSize.Key
+            Write-Output "   Closest size: $closestSizeName with difference $closestDiff."
+            Write-Output ""
+            continue
+        }
+
+        $paperWidth = $closestSize.Value[0]
+        $paperHeight = $closestSize.Value[1]
+
+        # Calculate the cropping dimensions
+        $cropWidth = [math]::Min($width, $paperWidth)
+        $cropHeight = [math]::Min($height, $paperHeight)
+
+        # Construct the relative path to create the same structure in the destination folder
+        $relativePath = $file.FullName.Substring($SourcePath.Length).TrimStart('\')
+        $destinationFolder = Join-Path -Path $CroppedPath -ChildPath $relativePath | Split-Path -Parent
+
+        if (-not (Test-Path -Path $destinationFolder -PathType Container)) {
+            New-Item -ItemType Directory -Force -Path $destinationFolder | Out-Null
+        }
+
+        $croppedFileName = Join-Path -Path $destinationFolder -ChildPath $file.Name
+
+        # Calculate cropping offsets
+        $widthDifference = $width - $paperWidth
+        $heightDifference = $height - $paperHeight
+        $x1 = [math]::Round($widthDifference / 2)
+        $y1 = [math]::Round($heightDifference / 2)
+        $x2 = $paperWidth
+        $y2 = $paperHeight
+
+        # Construct the crop command
+        $command = "`"$IrfanViewPath`" `"$($file.FullName)`" /crop=($x1,$y1,$x2,$y2) /convert=`"$croppedFileName`" /cmdexit"
+
+        # Execute the crop command
+        & cmd.exe /c $command | Out-Null
+    }
+}
+
+# Function to find the closest value in an array
+function Find-ClosestValue {
+    param (
+        [double]$target,
+        [array]$values
+    )
+
+    # Sort the DPI values
+    $sortedValues = $values | Sort-Object
+
+    # Find the closest value within the tolerance range
+    $closestValue = $null
+    foreach ($value in $sortedValues) {
+        $diff = [math]::Abs([double]$value - [double]$target)
+        if ($closestValue -eq $null -or $diff -lt $closestValue.Diff) {
+            $closestValue = [PSCustomObject]@{
+                Value = $value
+                Diff = $diff
+            }
         }
     }
+
+    return $closestValue.Value
 }
 
 function Convert-ToPDF {
@@ -234,6 +295,7 @@ function Convert-ToPDF {
     # Process each directory to convert TIFF files to PDF
     foreach ($dir in $directories) {
         $tiffFiles = Get-ChildItem -Path $dir.FullName -Filter *.tif
+        $tifffiles = $tifffiles | Sort-Object {[int]($_.BaseName -replace '/D','')}
         Write-Output "Attempting to create PDFS:"
         Write-Output " - Directory found $dir, creating PDF..."
 
@@ -313,18 +375,18 @@ else {
 Write-Output ""
 if ($Run_Crop -eq "Y") {
     ### Call Crop-Images function
-    Write-Output "Searching the Deskewed directory $Deskewed for TIF files to crop to A4..."
-    Crop-ImagesRecursively -SourcePath $Deskewed -DestinationPath $Cropped -A4Sizes $A4Sizes -IrfanViewPath $IrfanView
+    Write-Output "Searching the Deskewed directory $Deskewed for TIF files to crop..."
+    Crop-ImagesRecursively -SourcePath $Deskewed -CroppedPath $CroppedPath -PaperSizes $PaperSizes -IrfanViewPath $IrfanView -Tolerance $Tolerance
 }
 else {
-    Write-Output "Skipping crop of deskewed images back to correct size (probably A4)."
+    Write-Output "Skipping crop of deskewed images back to correct size."
 
 }
 Write-Output ""
 if ($Combine_to_PDF -eq "Y") {
     ### Call the function to start the process of combining to PDFs
     Write-Output "Searching the Cropped directory $Cropped for TIF files to convert and combine into PDFs..."
-    Question-PDF -SourcePath $Cropped -OutputPath $PDFs -img2pdfPath $img2pdf
+    Question-PDF -SourcePath $CroppedPath -OutputPath $PDFs -img2pdfPath $img2pdf
 }
 else {
     Write-Output "Skipping combining the cropped images to a PDF."
