@@ -18,14 +18,14 @@ This script is broken down into a few key steps:
 Clear-Host #Clear the console
 
 ### Global Variables
-$Compression = "LZW" #Set to either CCITT Fax 4 or None or LZW
+$Compression = "LZW" #Set to either 'CCITT Fax 4' or 'None' or 'LZW'
 
 ### Switches
 $Set_Compression = "Y" #(Y/N) - If Y the global variable applies, if N it will set to LZW as default.
-$Run_TIFF_Extraction = "N" #(Y/N) - if Y the script will run the multipage TIF extraction.
-$Run_Deskew = "N" #(Y/N) - if Y then the deskewing of the extracted TIF files will process.
-$Run_Crop = "N" #(Y/N) - if Y the deskewed (straightened) TIF files will now be cropped to their nearest standard size (probably A4).
-$Combine_to_PDF = "Y" #(Y/N) - if Y there will be a pause question, which you can progress past when ready, and combine the available TIF files into a PDF.
+$Run_TIFF_Extraction = "N" #(Y/N) - If Y the script will run the multipage TIF extraction.
+$Run_Deskew = "N" #(Y/N) - If Y then the deskewing of the extracted TIF files will process.
+$Run_Crop = "N" #(Y/N) - If Y the deskewed (straightened) TIF files will now be cropped to their nearest standard size (probably A4).
+$Combine_to_PDF = "Y" #(Y/N) - If Y there will be a pause question, which you can progress past when ready, and combine the available TIF files into a PDF.
 
 ### Applications
 $IrfanView = "C:\Program Files\IrfanView\i_view64.exe" #This should point at the Infraview exe, if you're on 64-bit Windows and installed with defaults this should be fine.
@@ -318,7 +318,7 @@ function Question-PDF {
 
 ### MAIN SCRIPT EXECUTION
 Write-Output "***********Document Archiver**********"
-Write-Output "*******Last updated 02/01/2024********"
+Write-Output "*******Last updated 16/05/2024********"
 Write-Output ""
 Write-Output "IrfanView Compression Value:"
 if ($Set_Compression -eq "Y") {
